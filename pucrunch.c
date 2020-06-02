@@ -941,6 +941,7 @@ static int OutputLz(int *esc, int lzlen, int lzpos, char *data, int curpos) {
 	return 3;
     }
     fprintf(stderr, "Error: lzlen too short/long (%d)\n", lzlen);
+    exit(EXIT_FAILURE);
     return lzlen;
 }
 
@@ -2914,7 +2915,7 @@ int main(int argc, char *argv[]) {
     int flags = F_2MHZ, lzlen = -1, buflen;
     char *fileIn = NULL, *fileOut = NULL;
     FILE *infp;
-    unsigned char tmp[2];
+    unsigned char tmp[10];
     unsigned long timeused = clock();
 
     int machineType = 64;
@@ -3156,13 +3157,26 @@ maxrlelen = MAXRLELEN;
     }
 
     if (!(flags & F_SKIP)) {
-	fread(tmp, 1, 2, infp);
+	fread(tmp, 1, 10, infp);
 	/* Use it only if not overriden by the user */
-	if (startAddr==-1)
-	    startAddr = tmp[0] + 256*tmp[1];
+
+	if(tmp[1]==0x80 && (tmp[0]==0x08 || tmp[0]==0x09))
+	{
+	  printf("hmmm could be wrong Endian header %02X %02X\n",tmp[0], tmp[1]);
+	}
+	/// Problem: Atari vs PC / 
+	if(tmp[0]==0x80 && (tmp[1]==0x08 || tmp[1]==0x09))
+	{
+	  if (startAddr==-1)
+	    startAddr = tmp[2]*256 + tmp[3];// Startadresse
+	  printf("Start Addr: $%04X\n",startAddr);
+	}else{
+	  printf("no header\n");
+	  fseek(infp,0,SEEK_SET);
+	}
     }
     if (startAddr==-1)
-	startAddr = 0x258;
+	startAddr = 0x0000;
 
     /* Read in the data */
     inlen = 0;
@@ -3193,6 +3207,7 @@ maxrlelen = MAXRLELEN;
 	return n;
     }
 
+#if 0 /// zero is for data
     if (startAddr < 0x258
 #ifndef BIG
 	|| startAddr + inlen -1 > 0xffff
@@ -3206,7 +3221,7 @@ maxrlelen = MAXRLELEN;
 	    free(indata);
 	return EXIT_FAILURE;
     }
-
+#endif
     switch (machineType) {
     case 20:
 	machineTypeTxt = "VIC20 with 8k or 16k (or 24k) expansion memory";
